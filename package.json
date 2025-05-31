@@ -7,7 +7,7 @@
   "scripts": {
     "dev":"nodemon src/index.js"
   },
-  "author": "",
+  "author": "YUG",
   "license": "ISC",
   "devDependencies": {
     "nodemon": "^3.1.10"
