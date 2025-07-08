@@ -1,102 +1,104 @@
-import { asyncHandler } from '../utils/asyncHandler.js';
-import { ApiError } from '../utils/ApiErrors.js'; // Importing ApiError for error handling
-import { User } from '../models/user.models.js';
-import { uploadONCloudinary } from '../utils/cloudinary_service.js';
-import { ApiResponse } from '../utils/ApiResponse.js';
+import { asyncHandler } from "../utils/asyncHandler.js";
+import { ApiError } from "../utils/ApiErrors.js";
+import { User } from "../models/user.models.js";
+import { uploadOnCloudinary } from "../utils/cloudinary_service.js";
+import { ApiResponse } from "../utils/ApiResponse.js";
 
 const registerUser = asyncHandler(async (req, res) => {
-  console.log('Register user endpoint hit');
-  console.log('Request body:', req.body);
+  console.log("Register user endpoint hit");
+  console.log("Request body:", req.body);
 
-  res.status(200).json({
-    success: true,
-    message: 'User registration endpoint working!',
-    data: req.body,
-  });
+  // REMOVE THIS EARLY RETURN - This was preventing the actual registration logic from running
+  // res.status(200).json({
+  //   success: true,
+  //   message: "User registration endpoint working!",
+  //   data: req.body,
+  // });
 
-  // STEPS TO REGISTER A USER
-
-  // 1. GET USER DETAILS FROM FRONTEND
-  // 2. VALIDATE USER DETAILS - NOT EMPTY, VALID EMAIL, ETC.
-  // 3. CHECK IF USER ALREADY EXISTS : USERNAME OR EMAIL
-  // 4. CHECK FOR IMAGE, CHECK FOR AVATAR
-  // 5. UPLOAD TO CLOUDINARY, AVATAR
-  // 6. CREATE USER-OBJECT TO BE STORED IN DATABASE- CREATE ENTRY IN DB
-  // 7. SEND RESPONSE BACK TO FRONTEND - SUCCESS OR FAILURE
-  // 8. REMOVE PASSWORD AND REFRESH TOKEN FIELD FROM RESPONSE (NOT ALLOWING USER TO SEE THESE FIELDS)
-  // 9. CHECK FOR USER CREATION SUCCESS OR FAILURE
-  // 10. IF SUCCESS, RETURN RESPONSE WITH USER DETAILS (EXCLUDING PASSWORD AND REFRESH TOKEN)
-  // 11. IF FAILURE, RETURN ERROR MESSAGE
-
-  // 1. GET USER DETAILS FROM FRONTEND :
+  // 1. GET USER DETAILS FROM FRONTEND - REMOVE AWAIT FROM req.body
   const { fullName, email, password, username } = req.body;
-  console.log('User details from request body:', {
+  console.log("User details from request body:", {
     fullName,
     email,
     password,
     username,
   });
 
-  // 2. Validation :
-
-  // if (fullName === "") {
-  //   throw new ApiError(400,"FULL NAME IS REQUIRED")
-  // }
-  // ALTERNATE :
-
+  // 2. Validation - FIX: Remove duplicate password in array
   if (
-    [fullName, email, password, username, password].some(
-      (field) => field?.trim() === ''
-    )
+    [fullName, email, password, username].some((field) => field?.trim() === "")
   ) {
-    throw new ApiError(400, 'All fields are required');
+    throw new ApiError(400, "All fields are required");
   }
 
-  // 3. CHECK IF USER ALREADY EXISTS : USERNAME OR EMAIL :
-  const existedUser = User.findOne({
+  // 3. CHECK IF USER ALREADY EXISTS
+  const existedUser = await User.findOne({
     $or: [{ username }, { email }],
   });
 
   if (existedUser) {
-    throw new ApiError(409, 'Username or Email Already exists');
+    throw new ApiError(409, "Username or Email Already exists");
   }
 
   // 4. CHECK FOR IMAGE, CHECK FOR AVATAR
-  const avatarLocalPath = req.files?.avatar[0]?.path;
-  console.log(req.files);
-  const coverImageLocalPath = req.files?.coverImage[0]?.path;
-  if (avatarLocalPath) {
-    throw new ApiError(400, 'Avatar is Required');
+   console.log("Files received:", req.files)
+
+  const avatarLocalPath = req.files?.avatar?.[0]?.path
+  const coverImageLocalPath = req.files?.coverImage?.[0]?.path
+
+  console.log("Avatar path:", avatarLocalPath)
+  console.log("Cover image path:", coverImageLocalPath)
+
+  if (!avatarLocalPath) {
+    throw new ApiError(400, "Avatar file is required")
   }
 
-  // 5. UPLOAD TO CLOUDINARY, AVATAR :
-  const avatar = await uploadONCloudinary(avatarLocalPath);
-  const coverImage = await uploadONCloudinary(coverImageLocalPath);
+  if (!coverImageLocalPath) {
+    throw new ApiError(400, "Cover image file is required")
+  }
+
+  // 5. UPLOAD TO CLOUDINARY
+  console.log("Uploading avatar...")
+  const avatar = await uploadOnCloudinary(avatarLocalPath)
+
+  console.log("Uploading cover image...")
+  const coverImage = await uploadOnCloudinary(coverImageLocalPath)
+
+  console.log("Avatar upload result:", avatar)
+  console.log("Cover image upload result:", coverImage)
 
   if (!avatar) {
-    throw new ApiError(400, 'Avatar upload failed');
+    throw new ApiError(400, "Failed to upload avatar")
   }
 
-  // 6. CREATE USER-OBJECT TO BE STORED IN DATABASE- CREATE ENTRY IN DB :
+  if (!coverImage) {
+    throw new ApiError(400, "Failed to upload cover image")
+  }
+
+
+  // 6. CREATE USER IN DATABASE
   const user = await User.create({
     fullName,
     email,
     password,
     username: username.toLowerCase(),
     avatar: avatar.url,
-    coverImage: coverImage?.url || ' ',
+    coverImage: coverImage?.url || "",
   });
-  const createdUser = await user.findById(user._id).select(
-    '-password -refreshToken'
-  );
-  if (!createdUser) {
-    throw new ApiError(500, 'Something went wrong while creating user');
-  }
-});
 
-// 10. IF SUCCESS, RETURN RESPONSE WITH USER DETAILS (EXCLUDING PASSWORD AND REFRESH TOKEN) :
-return res.status(201).json(
-  new ApiResponse(200,createdUser,"User registered succesfully")
-)
+  // 7. FIX: Use User model, not user instance
+  const createdUser = await User.findById(user._id).select(
+    "-password -refreshToken"
+  );
+
+  if (!createdUser) {
+    throw new ApiError(500, "Something went wrong while creating user");
+  }
+
+  // 8. RETURN SUCCESS RESPONSE
+  return res
+    .status(201)
+    .json(new ApiResponse(200, createdUser, "User registered successfully"));
+});
 
 export { registerUser };

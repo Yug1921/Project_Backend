@@ -9,24 +9,14 @@ dotenv.config({
 
 // Connect to database and start server
 connectDB()
-  .then(() => {
-    // Use the imported app, don't create a new one
-    const PORT = process.env.PORT || 8000
-
-    app.listen(PORT, () => {
-      console.log(`⚙️  Server is running at port: ${PORT}`)
+.then(() => {
+    app.listen(process.env.PORT || 8000, () => {
+        console.log(`⚙️ Server is running at port : ${process.env.PORT}`);
     })
-
-    // Add error handling for the app
-    app.on("error", (error) => {
-      console.log("ERROR: ", error)
-      throw error
-    })
-  })
-  .catch((error) => {
-    console.log("MONGO DB connection failed !!! ", error)
-    process.exit(1) // Exit the process if DB connection fails
-  })
+})
+.catch((err) => {
+    console.log("MONGO db connection failed !!! ", err);
+})
 
 
 
