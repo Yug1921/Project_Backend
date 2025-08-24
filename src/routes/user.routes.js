@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { loginUser, registerUser, logoutUser } from '../controllers/user.controller.js';
+import { loginUser, registerUser, logoutUser, refreshAccessToken } from '../controllers/user.controller.js';
 import { upload } from '../middlewares/multer.middleware.js'; // Importing upload for handling file uploads if needed
 import { verifyJWT } from '../middlewares/auth.middleware.js';
 
@@ -23,6 +23,17 @@ router.route('/register').post(
 router.route('/login').post(loginUser)  
 
 //secure routes
-router.route('logout').post(verifyJWT, logoutUser)
+router.route("/logout").post(
+  (req, res, next) => {
+    console.log("Logout route hit")
+    console.log("Cookies received:", req.cookies)
+    console.log("Headers:", req.headers)
+    next()
+  },
+  verifyJWT,
+  logoutUser,
+)
+
+router.route("/refresh-token").post(refreshAccessToken)
 
 export default router; // Export router, not userRouter
